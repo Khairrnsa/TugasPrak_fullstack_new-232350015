@@ -34,5 +34,48 @@
             </div>
         </div>
     </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted">Jumlah Penjualan</div>
+                <div class="display-5 fw-semibold">
+                    Rp {{ number_format($totalPenjualan, 0, ',', '.') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted">Jumlah Profit</div>
+                <div class="display-5 fw-semibold">
+                    Rp {{ number_format($totalProfit, 0, ',', '.') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted">Jumlah Penjualan Bulan Ini</div>
+                <div class="display-5 fw-semibold">
+                    Rp {{ number_format($totalPenjualanBulanIni, 0, ',', '.') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted">Jumlah Profit Bulan Ini</div>
+                <div class="display-5 fw-semibold">
+                    Rp {{ number_format($totalProfitBulanIni, 0, ',', '.') }}
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
