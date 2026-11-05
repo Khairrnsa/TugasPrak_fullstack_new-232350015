@@ -1,110 +1,179 @@
 @extends('layouts.app')
-@section('title', 'Edit Order')
+@section('title', 'Edit Order - Reactive UX')
 @section('content')
-<div id="orderEditApp">
-  <h1 class="h3 mb-3">Edit Order</h1>
-  <div v-if="error" class="alert alert-danger">@{{ error }}</div>
-  <div v-if="loading">Memuat order...</div>
+<div id="orderEditApp" class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Edit Order</h1>
+    <a href="{{ route('order.index') }}" class="btn btn-outline-secondary">Daftar Order</a>
+  </div>
+  <div v-if="error" class="alert alert-danger" role="alert">@{{ error }}</div>
+  <div v-if="success" class="alert alert-success" role="status">
+    @{{ success }} <a href="{{ route('order.index') }}" class="alert-link ms-2">Lihat Order</a>
+  </div>
+  <div v-if="loadState==='loading'" class="alert alert-info" role="status">
+    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+    Memuat data Order dan Menu...
+  </div>
+  <div v-else-if="loadState==='error'" class="alert alert-warning" role="alert">
+    Gagal membuka editor. <button type="button" class="btn btn-sm btn-outline-dark" @click="load">Coba Lagi</button>
+  </div>
   <div v-else-if="status!=='active'" class="alert alert-warning">
-    Order sudah final; tidak dapat diedit.
+    Order sudah final. Hanya Order ACTIVE yang boleh diubah.
   </div>
   <template v-else>
     <div class="card mb-3"><div class="card-body row g-3">
-      <div class="col-md-3"><label class="form-label">Meja</label>
-        <input v-model.trim="meja" class="form-control"></div>
-      <div class="col-md-4"><label class="form-label">Menu</label>
-        <select v-model="menuId" class="form-select"><option value="">Pilih</option>
+      <div class="col-md-3">
+        <label class="form-label" for="editMeja">Meja</label>
+        <input id="editMeja" class="form-control" v-model.trim="meja" :disabled="saving || !!success">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="editMenu">Menu Resto</label>
+        <select id="editMenu" class="form-select" v-model="menuId" @change="picked=''" :disabled="saving || !!success">
+          <option value="">Pilih Menu</option>
           <option v-for="m in menus" :key="m.id" :value="m.id">@{{ m.nama }}</option>
-        </select></div>
-      <div class="col-md-5"><label class="form-label">Product</label>
-        <select v-model="picked" class="form-select"><option value="">Pilih</option>
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label" for="editProduct">Product dalam Menu</label>
+        <select id="editProduct" class="form-select" v-model="picked" :disabled="!menuId || saving || !!success">
+          <option value="">Pilih Product</option>
           <option v-for="d in options" :key="d.id" :value="d.id">
-            @{{ d.product.name }} (Rp @{{ rupiah(d.harga) }})
-          </option></select></div>
-      <div class="col-md-3"><label class="form-label">Qty item baru</label>
-        <input type="number" v-model.number="qty" min="1" class="form-control"></div>
-      <div class="col-md-3 d-grid align-items-end">
-        <button @click="addItem" class="btn btn-outline-primary">Tambah Item</button>
+            @{{ d.product?.name || 'Product' }} - Rp @{{ rupiah(d.harga) }} (Stok: @{{ d.product?.stok || 0 }})
+          </option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="editQty">Qty tambahan</label>
+        <input id="editQty" type="number" min="1" step="1" class="form-control" v-model.number="qty"
+          :disabled="saving || !!success" :class="{'is-invalid': qtyStockMessage}"
+          :aria-invalid="!!qtyStockMessage" aria-describedby="editQtyStockError">
+        <div id="editQtyStockError" v-if="qtyStockMessage" class="invalid-feedback" role="alert">@{{ qtyStockMessage }}</div>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="button" class="btn btn-outline-primary w-100" @click="addItem"
+          :disabled="!canAdd || !!success">Tambah Item</button>
+      </div>
+      <div class="col-md-6 d-flex align-items-end text-muted">
+        Harga untuk item yang sudah ada tetap memakai snapshot transaksi.
       </div>
     </div></div>
     <div class="card"><div class="card-body">
-      <table class="table"><thead><tr><th>Item</th><th>Qty</th>
-        <th>Harga Snapshot</th><th>Subtotal</th><th>Aksi</th>
-      </tr></thead><tbody>
-        <tr v-for="(it,i) in items" :key="it.menu_detail_id">
+      <div v-if="items.length===0" class="alert alert-secondary">Belum ada item dalam Order.</div>
+      <div v-else class="table-responsive"><table class="table align-middle">
+        <thead><tr><th>Product</th><th>Qty</th><th>Harga Snapshot</th><th>Subtotal</th><th>Aksi</th></tr></thead>
+        <tbody><tr v-for="it in items" :key="it.menu_detail_id">
           <td>@{{ it.nama }}</td>
-          <td><input type="number" min="1" v-model.number="it.qty"
-            class="form-control form-control-sm" style="width:90px"></td>
+          <td style="width:110px"><input type="number" min="1" step="1"
+            class="form-control form-control-sm" v-model.number="it.qty" :disabled="saving || !!success"></td>
           <td>Rp @{{ rupiah(it.harga) }}</td>
-          <td>Rp @{{ rupiah(it.qty*it.harga) }}</td>
-          <td><button @click="items.splice(i,1)"
-            class="btn btn-sm btn-outline-danger">Hapus</button></td>
-        </tr>
-      </tbody></table>
-      <div class="text-end fw-bold mb-3">Total: Rp @{{ rupiah(total) }}</div>
-      <button @click="save" :disabled="saving" class="btn btn-primary">
-        Simpan Perubahan
+          <td>Rp @{{ rupiah(subtotal(it)) }}</td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger"
+            @click="removeItem(it.menu_detail_id)" :disabled="saving || !!success">Hapus</button></td>
+        </tr></tbody>
+      </table></div>
+      <div class="text-end fw-bold fs-5">Total preview: Rp @{{ rupiah(total) }}</div>
+      <small class="text-muted d-block">Total dan harga resmi tetap dihitung oleh backend saat menyimpan.</small>
+      <div v-if="!validItems && items.length" class="text-danger small mt-2">Qty harus bilangan bulat minimal 1.</div>
+      <div v-if="stockMessage" class="text-danger small mt-2" role="alert">@{{ stockMessage }}</div>
+      <button type="button" class="btn btn-primary mt-3" @click="save"
+        :disabled="!canSave || saving || !!success">
+        <span v-if="saving" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        @{{ saving ? 'Memperbarui...' : 'Simpan Perubahan' }}
       </button>
-      <a href="{{ route('order.index') }}" class="btn btn-outline-secondary ms-2">
-        Kembali
-      </a>
     </div></div>
   </template>
 </div>
 @endsection
 @push('scripts')
+<script src="{{ asset('js/order-ui.js') }}"></script>
 <script>
-const {createApp,ref,computed,onMounted}=Vue;
-createApp({setup(){
-  const orderId=@json($id),API_ORDERS=@json(url('/api/orders'));
-  const API_MENUS=@json(url('/api/menus'));
-  const ORDER_PAGE=@json(url('/order'));
-  const menus=ref([]),meja=ref(''),status=ref(''),items=ref([]);
-  const menuId=ref(''),picked=ref(''),qty=ref(1);
-  const loading=ref(true),saving=ref(false),error=ref('');
-  const options=computed(()=>menus.value.find(m=>m.id==menuId.value)?.details||[]);
-  const total=computed(()=>items.value.reduce((s,i)=>s+i.harga*i.qty,0));
-  const rupiah=n=>new Intl.NumberFormat('id-ID').format(n||0);
-  async function load(){
-    try{const [mr,or]=await Promise.all([
-      fetch(API_MENUS),fetch(`${API_ORDERS}/${orderId}`)]);
-      if(!mr.ok||!or.ok)throw Error('Gagal memuat data edit');
-      menus.value=await mr.json();const o=await or.json();
-      meja.value=o.meja;status.value=o.status;
-      items.value=o.details.map(d=>({menu_detail_id:d.menu_detail_id,
-        nama:d.menu_detail?.product?.name||`Item ${d.menu_detail_id}`,
-        harga:Number(d.harga),qty:Number(d.qty)}));
-    }catch(e){error.value=e.message;}finally{loading.value=false;}
+const { createApp, ref, computed, onMounted } = Vue;
+createApp({ setup() {
+  const { requestJson, rupiah, pesanError, stockError } = window.OrderUI;
+  const orderId = @json($id);
+  const API_ORDERS = @json(url('/api/orders'));
+  const API_MENUS = @json(url('/api/menus'));
+  const menus = ref([]), meja = ref(''), status = ref(''), items = ref([]);
+  const stockCredits = ref({});
+  const menuId = ref(''), picked = ref(''), qty = ref(1);
+  const loadState = ref('loading'), saving = ref(false), error = ref(''), success = ref('');
+  const options = computed(() => menus.value.find(m => m.id == menuId.value)?.details || []);
+  const selected = computed(() => options.value.find(d => d.id == picked.value));
+  const isPositiveInt = n => Number.isInteger(n) && n >= 1;
+  const subtotal = it => isPositiveInt(it.qty) ? it.qty * Number(it.harga) : 0;
+  const total = computed(() => items.value.reduce((sum, it) => sum + subtotal(it), 0));
+  const validItems = computed(() => items.value.every(it => isPositiveInt(it.qty)));
+  const stockMessage = computed(() => stockError(items.value, stockCredits.value));
+  const qtyStockMessage = computed(() => {
+    const d = selected.value;
+    if (!d || !isPositiveInt(qty.value)) return '';
+    return stockError([...items.value, { product_id: d.id_product,
+      stok: Number(d.product?.stok || 0), nama: d.product?.name || 'Produk', qty: qty.value }], stockCredits.value);
+  });
+  const canAdd = computed(() => !!selected.value && isPositiveInt(qty.value) && !qtyStockMessage.value && !saving.value);
+  const canSave = computed(() => status.value === 'active' && meja.value.trim() &&
+    items.value.length > 0 && validItems.value && !stockMessage.value && !saving.value);
+ 
+  async function load() {
+    loadState.value = 'loading'; error.value = '';
+    try {
+      const [menuResponse, orderResponse] = await Promise.all([
+        requestJson(API_MENUS), requestJson(`${API_ORDERS}/${orderId}`)
+      ]);
+      if (!Array.isArray(menuResponse) || !Array.isArray(orderResponse.details))
+        throw new Error('Struktur data edit tidak sesuai API.');
+      menus.value = menuResponse;
+      meja.value = orderResponse.meja; status.value = orderResponse.status;
+      stockCredits.value = {};
+      if (orderResponse.stock_deducted) {
+        for (const d of orderResponse.details) {
+          const id = d.menu_detail?.id_product;
+          stockCredits.value[id] = (stockCredits.value[id] || 0) + Number(d.qty);
+        }
+      }
+      items.value = orderResponse.details.map(d => ({
+        menu_detail_id: d.menu_detail_id,
+        product_id: d.menu_detail?.id_product,
+        stok: Number(d.menu_detail?.product?.stok || 0),
+        nama: d.menu_detail?.product?.name || `Item ${d.menu_detail_id}`,
+        harga: Number(d.harga), // harga SNAPSHOT dari OrderDetail, bukan MenuDetail terbaru
+        qty: Number(d.qty)
+      }));
+      loadState.value = 'ready';
+    } catch (e) { loadState.value = 'error'; error.value = pesanError(e); }
   }
-  function addItem(){
-    const d=options.value.find(x=>x.id==picked.value);
-    if(!d||!Number.isInteger(qty.value)||qty.value<1){
-      error.value='Pilih Product dan qty minimal 1';return;
-    }
-    const old=items.value.find(i=>i.menu_detail_id==d.id);
-    if(old)old.qty+=qty.value;
-    else items.value.push({menu_detail_id:d.id,nama:d.product.name,
-      harga:Number(d.harga),qty:qty.value});
-    picked.value='';qty.value=1;error.value='';
+  function addItem() {
+    if (!canAdd.value) return;
+    const d = selected.value;
+    const candidate = { product_id: d.id_product, stok: Number(d.product?.stok || 0),
+      nama: d.product?.name || `Product ${d.id}`, qty: qty.value };
+    const message = stockError([...items.value, candidate], stockCredits.value);
+    if (message) { error.value = message; return; }
+    const previous = items.value.find(it => it.menu_detail_id == d.id);
+    if (previous) previous.qty += qty.value; // pertahankan harga snapshot existing
+    else items.value.push({ ...candidate, menu_detail_id: d.id,
+      nama: d.product?.name || `Product ${d.id}`, harga: Number(d.harga), qty: qty.value });
+    picked.value = ''; qty.value = 1; error.value = '';
   }
-  async function save(){
-    if(!meja.value.trim()||!items.value.length||
-       items.value.some(i=>!Number.isInteger(i.qty)||i.qty<1)){
-      error.value='Meja dan qty harus valid; minimal satu item.';return;
-    }
-    saving.value=true;error.value='';
-    try{const r=await fetch(`${API_ORDERS}/${orderId}`,{
-      method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify({meja:meja.value,items:items.value.map(i=>({
-        menu_detail_id:i.menu_detail_id,qty:i.qty
-      }))})});
-      const j=await r.json();if(!r.ok)throw Error(j.message||'Gagal update');
-      window.location.href=ORDER_PAGE;
-    }catch(e){error.value=e.message;}finally{saving.value=false;}
+  function removeItem(id) { items.value = items.value.filter(it => it.menu_detail_id != id); }
+  async function save() {
+    if (saving.value || success.value) return;
+    if (!canSave.value) { error.value = 'Meja dan item/qty harus valid.'; return; }
+    saving.value = true; error.value = '';
+    try {
+      const data = await requestJson(`${API_ORDERS}/${orderId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meja: meja.value, items: items.value.map(it => ({
+          menu_detail_id: it.menu_detail_id, qty: it.qty })) })
+      });
+      success.value = data.message || 'Perubahan Order berhasil disimpan.';
+    } catch (e) { error.value = pesanError(e); }
+    finally { saving.value = false; }
   }
   onMounted(load);
-  return{menus,meja,status,items,menuId,picked,qty,options,
-    total,rupiah,loading,saving,error,addItem,save};
+  return { menus, meja, status, items, menuId, picked, qty, options,
+    loadState, saving, error, success, canAdd, canSave, total, validItems, stockMessage, qtyStockMessage,
+    subtotal, rupiah, load, addItem, removeItem, save };
 }}).mount('#orderEditApp');
 </script>
 @endpush
