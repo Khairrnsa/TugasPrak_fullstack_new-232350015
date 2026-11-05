@@ -1,5 +1,12 @@
 @extends('layouts.app')
 @section('title', 'New Order - Reactive UX')
+@push('styles')
+<style>
+  .qty-input::-webkit-outer-spin-button,
+  .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .qty-input { -moz-appearance: textfield; }
+</style>
+@endpush
 @section('content')
 <div id="orderAddApp" class="container-fluid">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -55,12 +62,13 @@
       </div>
       <div class="col-md-3">
         <label class="form-label" for="qty">Qty</label>
-        <input id="qty" type="number" min="1" step="1" class="form-control"
+        <input id="qty" type="number" min="1" step="1" class="form-control qty-input"
           v-model.number="qty" :disabled="saving || !!savedOrder"
           :class="{'is-invalid': qtyStockMessage}" :aria-invalid="!!qtyStockMessage" aria-describedby="qtyStockError">
         <div id="qtyStockError" v-if="qtyStockMessage" class="invalid-feedback" role="alert">@{{ qtyStockMessage }}</div>
       </div>
-      <div class="col-md-3 d-flex align-items-end">
+      <div class="col-md-3">
+        <label class="form-label invisible" aria-hidden="true">Aksi</label>
         <button type="button" class="btn btn-outline-primary w-100"
           @click="addItem" :disabled="!canAdd || !!savedOrder">Tambah Item</button>
       </div>
@@ -82,7 +90,7 @@
           <tr v-for="it in items" :key="it.menu_detail_id">
             <td>@{{ it.nama }}</td>
             <td>Rp @{{ rupiah(it.harga) }}</td>
-            <td><input type="number" min="1" step="1" class="form-control form-control-sm"
+            <td><input type="number" min="1" step="1" class="form-control form-control-sm qty-input"
               v-model.number="it.qty" :disabled="saving || !!savedOrder"
               :aria-label="'Jumlah '+it.nama"></td>
             <td>Rp @{{ rupiah(subtotal(it)) }}</td>

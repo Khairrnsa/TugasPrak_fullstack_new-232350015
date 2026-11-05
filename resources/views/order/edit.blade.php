@@ -1,5 +1,12 @@
 @extends('layouts.app')
 @section('title', 'Edit Order - Reactive UX')
+@push('styles')
+<style>
+  .qty-input::-webkit-outer-spin-button,
+  .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .qty-input { -moz-appearance: textfield; }
+</style>
+@endpush
 @section('content')
 <div id="orderEditApp" class="container-fluid">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -44,12 +51,13 @@
       </div>
       <div class="col-md-3">
         <label class="form-label" for="editQty">Qty tambahan</label>
-        <input id="editQty" type="number" min="1" step="1" class="form-control" v-model.number="qty"
+        <input id="editQty" type="number" min="1" step="1" class="form-control qty-input" v-model.number="qty"
           :disabled="saving || !!success" :class="{'is-invalid': qtyStockMessage}"
           :aria-invalid="!!qtyStockMessage" aria-describedby="editQtyStockError">
         <div id="editQtyStockError" v-if="qtyStockMessage" class="invalid-feedback" role="alert">@{{ qtyStockMessage }}</div>
       </div>
-      <div class="col-md-3 d-flex align-items-end">
+      <div class="col-md-3">
+        <label class="form-label invisible" aria-hidden="true">Aksi</label>
         <button type="button" class="btn btn-outline-primary w-100" @click="addItem"
           :disabled="!canAdd || !!success">Tambah Item</button>
       </div>
@@ -64,7 +72,7 @@
         <tbody><tr v-for="it in items" :key="it.menu_detail_id">
           <td>@{{ it.nama }}</td>
           <td style="width:110px"><input type="number" min="1" step="1"
-            class="form-control form-control-sm" v-model.number="it.qty" :disabled="saving || !!success"></td>
+            class="form-control form-control-sm qty-input" v-model.number="it.qty" :disabled="saving || !!success"></td>
           <td>Rp @{{ rupiah(it.harga) }}</td>
           <td>Rp @{{ rupiah(subtotal(it)) }}</td>
           <td><button type="button" class="btn btn-sm btn-outline-danger"
